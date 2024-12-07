@@ -600,12 +600,14 @@ func postIsu(c echo.Context) error {
 		if err != nil {
 			c.Logger().Error(err)
 			errJIA = c.NoContent(http.StatusInternalServerError)
+			return
 		}
 
 		reqJIA, err := http.NewRequest(http.MethodPost, targetURL, bytes.NewBuffer(bodyJSON))
 		if err != nil {
 			c.Logger().Error(err)
 			errJIA = c.NoContent(http.StatusInternalServerError)
+			return
 		}
 
 		reqJIA.Header.Set("Content-Type", "application/json")
@@ -613,6 +615,7 @@ func postIsu(c echo.Context) error {
 		if err != nil {
 			c.Logger().Errorf("failed to request to JIAService: %v", err)
 			errJIA = c.NoContent(http.StatusInternalServerError)
+			return
 		}
 		defer res.Body.Close()
 
@@ -620,17 +623,20 @@ func postIsu(c echo.Context) error {
 		if err != nil {
 			c.Logger().Error(err)
 			errJIA = c.NoContent(http.StatusInternalServerError)
+			return
 		}
 
 		if res.StatusCode != http.StatusAccepted {
 			c.Logger().Errorf("JIAService returned error: status code %v, message: %v", res.StatusCode, string(resBody))
 			errJIA = c.String(res.StatusCode, "JIAService returned error")
+			return
 		}
 
 		err = json.Unmarshal(resBody, &isuFromJIA)
 		if err != nil {
 			c.Logger().Error(err)
 			errJIA = c.NoContent(http.StatusInternalServerError)
+			return
 		}
 
 		wg.Done()
