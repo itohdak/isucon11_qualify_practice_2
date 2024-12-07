@@ -1354,7 +1354,7 @@ func postIsuCondition(c echo.Context) error {
 		c.Logger().Errorf("db error: %v", err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
-	_, err = tx.NamedExec(
+	_, err = tx.Exec(
 		"DELETE FROM `isu_latest_condition` WHERE `jia_isu_uuid` = ?",
 		latestCondition.JIAIsuUUID,
 	)
