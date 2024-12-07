@@ -30,7 +30,7 @@ for file in `\find etc -type f`; do
 done
 
 # アプリケーションのビルド
-APP_NAME=isucari
+APP_NAME=isucondition
 cd /home/isucon/webapp/go/
 
 # もしpgo.pb.gzがあればPGOを利用してビルド

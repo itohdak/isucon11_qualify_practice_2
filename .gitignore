@@ -33,3 +33,5 @@ env.sh
 
 pprotein
 pprotein-agent
+
+bench/
