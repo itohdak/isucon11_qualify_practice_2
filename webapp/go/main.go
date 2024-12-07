@@ -1231,7 +1231,9 @@ func postIsuCondition(c echo.Context) error {
 	}
 
 	conditions := make([]IsuCondition, len(req))
-	latestCondition := IsuCondition{}
+	latestCondition := IsuCondition{
+		Timestamp: time.Time{},
+	}
 	for i, cond := range req {
 		timestamp := time.Unix(cond.Timestamp, 0)
 
@@ -1253,6 +1255,8 @@ func postIsuCondition(c echo.Context) error {
 			latestCondition = isuCondition
 		}
 	}
+
+	log.Printf("jia_isu_uuid: %v, latest_timestamp: %v", jiaIsuUUID, latestCondition.Timestamp)
 
 	_, err = tx.NamedExec(
 		"INSERT INTO `isu_condition`"+
