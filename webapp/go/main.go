@@ -1236,6 +1236,7 @@ func postIsuCondition(c echo.Context) error {
 	}
 
 	conditions := make([]IsuCondition, len(req))
+	latestCondition := IsuCondition{}
 	for i, cond := range req {
 		timestamp := time.Unix(cond.Timestamp, 0)
 
@@ -1244,13 +1245,17 @@ func postIsuCondition(c echo.Context) error {
 		}
 
 		cLevel, _ := calculateConditionLevel(cond.Condition)
-		conditions[i] = IsuCondition{
+		isuCondition := IsuCondition{
 			JIAIsuUUID:     jiaIsuUUID,
 			Timestamp:      timestamp,
 			IsSitting:      cond.IsSitting,
 			Condition:      cond.Condition,
 			Message:        cond.Message,
 			ConditionLevel: cLevel,
+		}
+		conditions[i] = isuCondition
+		if latestCondition.Timestamp.Before(timestamp) {
+			latestCondition = isuCondition
 		}
 	}
 
@@ -1259,6 +1264,13 @@ func postIsuCondition(c echo.Context) error {
 			"	(`jia_isu_uuid`, `timestamp`, `is_sitting`, `condition`, `message`, `condition_level`)"+
 			"	VALUES (:jia_isu_uuid, :timestamp, :is_sitting, :condition, :message, :condition_level)",
 		conditions,
+	)
+	_, err = tx.NamedExec(
+		"INSERT INTO `isu_latest_condition`"+
+			"	(`jia_isu_uuid`, `timestamp`, `is_sitting`, `condition`, `message`, `condition_level`)"+
+			"	VALUES (:jia_isu_uuid, :timestamp, :is_sitting, :condition, :message, :condition_level)"+
+			"	ON DUPLICATE KEY UPDATE `jia_isu_uuid` = :jia_isu_uuid",
+		latestCondition,
 	)
 	if err != nil {
 		c.Logger().Errorf("db error: %v", err)
