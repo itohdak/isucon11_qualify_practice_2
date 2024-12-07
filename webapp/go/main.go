@@ -94,14 +94,15 @@ type IsuCondition struct {
 }
 
 type IsuConditionWithIsuID struct {
-	IsuID      int       `db:"isu_id"`
-	ID         int       `db:"id"`
-	JIAIsuUUID string    `db:"jia_isu_uuid"`
-	Timestamp  time.Time `db:"timestamp"`
-	IsSitting  bool      `db:"is_sitting"`
-	Condition  string    `db:"condition"`
-	Message    string    `db:"message"`
-	CreatedAt  time.Time `db:"created_at"`
+	IsuID          int       `db:"isu_id"`
+	ID             int       `db:"id"`
+	JIAIsuUUID     string    `db:"jia_isu_uuid"`
+	Timestamp      time.Time `db:"timestamp"`
+	IsSitting      bool      `db:"is_sitting"`
+	Condition      string    `db:"condition"`
+	Message        string    `db:"message"`
+	CreatedAt      time.Time `db:"created_at"`
+	ConditionLevel string    `db:"condition_level"`
 }
 
 type MySQLConnectionEnv struct {
