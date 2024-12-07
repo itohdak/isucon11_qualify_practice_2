@@ -1130,7 +1130,7 @@ func getTrend(c echo.Context) error {
 	allConditions := []IsuConditionWithIsuIDAndCharacter{}
 	db.Select(
 		&allConditions,
-		"SELECT i.id AS isu_id, i.`character` AS character, c1.jia_isu_uuid, c1.timestamp, c1.condition_level FROM isu_condition c1 JOIN (SELECT jia_isu_uuid, max(timestamp) as timestamp FROM isu_condition c2 GROUP BY jia_isu_uuid) AS c3 ON c1.jia_isu_uuid = c3.jia_isu_uuid AND c1.timestamp = c3.timestamp JOIN isu i ON i.jia_isu_uuid = c1.jia_isu_uuid GROUP BY i.`character`, i.`jia_isu_uuid`",
+		"SELECT i.id AS isu_id, i.`character` AS `character`, c1.jia_isu_uuid, c1.timestamp, c1.condition_level FROM isu_condition c1 JOIN (SELECT jia_isu_uuid, max(timestamp) as timestamp FROM isu_condition c2 GROUP BY jia_isu_uuid) AS c3 ON c1.jia_isu_uuid = c3.jia_isu_uuid AND c1.timestamp = c3.timestamp JOIN isu i ON i.jia_isu_uuid = c1.jia_isu_uuid GROUP BY i.`character`, i.`jia_isu_uuid`",
 	)
 	conditionsByCharacter := map[string][]IsuConditionWithIsuID{}
 	for _, condition := range allConditions {
