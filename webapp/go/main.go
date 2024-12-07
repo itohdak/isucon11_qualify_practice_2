@@ -589,7 +589,6 @@ func postIsu(c echo.Context) error {
 
 	var res *http.Response
 	var resBody []byte
-	defer res.Body.Close()
 	var isuFromJIA IsuFromJIA
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -615,7 +614,7 @@ func postIsu(c echo.Context) error {
 			c.Logger().Errorf("failed to request to JIAService: %v", err)
 			errJIA = c.NoContent(http.StatusInternalServerError)
 		}
-		/* defer res.Body.Close() */
+		defer res.Body.Close()
 
 		resBody, err = ioutil.ReadAll(res.Body)
 		if err != nil {
