@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -579,6 +580,63 @@ func postIsu(c echo.Context) error {
 		useDefaultImage = true
 	}
 
+	tx, err := db.Beginx()
+	if err != nil {
+		c.Logger().Errorf("db error: %v", err)
+		return c.NoContent(http.StatusInternalServerError)
+	}
+	defer tx.Rollback()
+
+	var res *http.Response
+	var resBody []byte
+	defer res.Body.Close()
+	var isuFromJIA IsuFromJIA
+	var wg sync.WaitGroup
+	wg.Add(1)
+	var errJIA error
+	go func() {
+		targetURL := getJIAServiceURL(tx) + "/api/activate"
+		body := JIAServiceRequest{postIsuConditionTargetBaseURL, jiaIsuUUID}
+		bodyJSON, err := json.Marshal(body)
+		if err != nil {
+			c.Logger().Error(err)
+			errJIA = c.NoContent(http.StatusInternalServerError)
+		}
+
+		reqJIA, err := http.NewRequest(http.MethodPost, targetURL, bytes.NewBuffer(bodyJSON))
+		if err != nil {
+			c.Logger().Error(err)
+			errJIA = c.NoContent(http.StatusInternalServerError)
+		}
+
+		reqJIA.Header.Set("Content-Type", "application/json")
+		res, err = http.DefaultClient.Do(reqJIA)
+		if err != nil {
+			c.Logger().Errorf("failed to request to JIAService: %v", err)
+			errJIA = c.NoContent(http.StatusInternalServerError)
+		}
+		/* defer res.Body.Close() */
+
+		resBody, err = ioutil.ReadAll(res.Body)
+		if err != nil {
+			c.Logger().Error(err)
+			errJIA = c.NoContent(http.StatusInternalServerError)
+		}
+
+		if res.StatusCode != http.StatusAccepted {
+			c.Logger().Errorf("JIAService returned error: status code %v, message: %v", res.StatusCode, string(resBody))
+			errJIA = c.String(res.StatusCode, "JIAService returned error")
+		}
+
+		err = json.Unmarshal(resBody, &isuFromJIA)
+		if err != nil {
+			c.Logger().Error(err)
+			errJIA = c.NoContent(http.StatusInternalServerError)
+		}
+
+		wg.Done()
+	}()
+
 	var image []byte
 
 	if useDefaultImage {
@@ -602,13 +660,6 @@ func postIsu(c echo.Context) error {
 		}
 	}
 
-	tx, err := db.Beginx()
-	if err != nil {
-		c.Logger().Errorf("db error: %v", err)
-		return c.NoContent(http.StatusInternalServerError)
-	}
-	defer tx.Rollback()
-
 	_, err = tx.Exec("INSERT INTO `isu`"+
 		"	(`jia_isu_uuid`, `name`, `image`, `jia_user_id`) VALUES (?, ?, ?, ?)",
 		jiaIsuUUID, isuName, image, jiaUserID)
@@ -623,44 +674,9 @@ func postIsu(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
-	targetURL := getJIAServiceURL(tx) + "/api/activate"
-	body := JIAServiceRequest{postIsuConditionTargetBaseURL, jiaIsuUUID}
-	bodyJSON, err := json.Marshal(body)
-	if err != nil {
-		c.Logger().Error(err)
-		return c.NoContent(http.StatusInternalServerError)
-	}
-
-	reqJIA, err := http.NewRequest(http.MethodPost, targetURL, bytes.NewBuffer(bodyJSON))
-	if err != nil {
-		c.Logger().Error(err)
-		return c.NoContent(http.StatusInternalServerError)
-	}
-
-	reqJIA.Header.Set("Content-Type", "application/json")
-	res, err := http.DefaultClient.Do(reqJIA)
-	if err != nil {
-		c.Logger().Errorf("failed to request to JIAService: %v", err)
-		return c.NoContent(http.StatusInternalServerError)
-	}
-	defer res.Body.Close()
-
-	resBody, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		c.Logger().Error(err)
-		return c.NoContent(http.StatusInternalServerError)
-	}
-
-	if res.StatusCode != http.StatusAccepted {
-		c.Logger().Errorf("JIAService returned error: status code %v, message: %v", res.StatusCode, string(resBody))
-		return c.String(res.StatusCode, "JIAService returned error")
-	}
-
-	var isuFromJIA IsuFromJIA
-	err = json.Unmarshal(resBody, &isuFromJIA)
-	if err != nil {
-		c.Logger().Error(err)
-		return c.NoContent(http.StatusInternalServerError)
+	wg.Wait()
+	if errJIA != nil {
+		return errJIA
 	}
 
 	_, err = tx.Exec("UPDATE `isu` SET `character` = ? WHERE  `jia_isu_uuid` = ?", isuFromJIA.Character, jiaIsuUUID)
