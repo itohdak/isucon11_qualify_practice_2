@@ -1134,6 +1134,9 @@ func getTrend(c echo.Context) error {
 	)
 	conditionsByCharacter := map[string][]IsuConditionWithIsuID{}
 	for _, condition := range allConditions {
+		if _, ok := conditionsByCharacter[condition.Character]; !ok {
+			conditionsByCharacter[condition.Character] = []IsuConditionWithIsuID{}
+		}
 		conditionsByCharacter[condition.Character] = append(conditionsByCharacter[condition.Character], IsuConditionWithIsuID{
 			IsuID:          condition.IsuID,
 			ID:             condition.ID,
