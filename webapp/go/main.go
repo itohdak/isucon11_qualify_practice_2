@@ -1221,7 +1221,6 @@ func postIsuCondition(c echo.Context) error {
 			Message:    cond.Message,
 		}
 	}
-	log.Printf("%v\n", conditions)
 
 	_, err = tx.NamedExec(
 		"INSERT INTO `isu_condition`"+
