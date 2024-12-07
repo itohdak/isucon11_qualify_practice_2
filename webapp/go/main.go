@@ -25,7 +25,6 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
 
-	usertrail "github.com/itohdak/usertrail/integration/echov4"
 	"github.com/kaz/pprotein/integration/standalone"
 )
 
@@ -235,26 +234,6 @@ func main() {
 
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
-
-	usertrail.Integrate(e, []string{
-		"^/initialize$",
-		"^/api/auth$",
-		"^/api/signout$",
-		"^/api/user/me$",
-		"^/api/isu$",
-		"^/api/isu$",
-		"^/api/isu/[0-9a-zA-Z-]+$",
-		"^/api/isu/[0-9a-zA-Z-]+/icon$",
-		"^/api/isu/[0-9a-zA-Z-]+/graph$",
-		"^/api/condition/[0-9a-zA-Z-]+$",
-		"^/api/trend$",
-		"^/api/condition/[0-9a-zA-Z-]+$",
-		"^/$",
-		"^/isu/[0-9a-zA-Z-]+$",
-		"^/isu/[0-9a-zA-Z-]+/condition$",
-		"^/isu/[0-9a-zA-Z-]+/graph$",
-		"^/register$",
-	})
 
 	e.POST("/initialize", postInitialize)
 
