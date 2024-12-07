@@ -93,21 +93,12 @@ type IsuCondition struct {
 	ConditionLevel string    `db:"condition_level"`
 }
 
-type IsuConditionWithIsuID struct {
-	IsuID          int       `db:"isu_id"`
-	ID             int       `db:"id"`
-	JIAIsuUUID     string    `db:"jia_isu_uuid"`
-	Timestamp      time.Time `db:"timestamp"`
-	IsSitting      bool      `db:"is_sitting"`
-	Condition      string    `db:"condition"`
-	Message        string    `db:"message"`
-	CreatedAt      time.Time `db:"created_at"`
-	ConditionLevel string    `db:"condition_level"`
-}
+type IsuConditionWithIsuInfo struct {
+	IsuID     int    `db:"isu_id"`
+	Name      string `db:"name"`
+	Character string `db:"character"`
+	JIAUserID string `db:"jia_user_id"`
 
-type IsuConditionWithIsuIDAndCharacter struct {
-	IsuID          int       `db:"isu_id"`
-	Character      string    `db:"character"`
 	ID             int       `db:"id"`
 	JIAIsuUUID     string    `db:"jia_isu_uuid"`
 	Timestamp      time.Time `db:"timestamp"`
@@ -497,55 +488,34 @@ func getIsuList(c echo.Context) error {
 	}
 	defer tx.Rollback()
 
-	isuList := []Isu{}
+	latestConditions := []IsuConditionWithIsuInfo{}
 	err = tx.Select(
-		&isuList,
-		"SELECT * FROM `isu` WHERE `jia_user_id` = ? ORDER BY `id` DESC",
-		jiaUserID)
+		&latestConditions,
+		"SELECT i.`id` AS `isu_id`, i.`name` AS `name`, i.`jia_isu_id` AS `jia_isu_id`, i.`character` AS `character`, c.* FROM `isu` i LEFT OUTER JOIN `isu_latest_condition` c ON i.`jia_isu_uuid` = c.`jia_isu_uuid` WHERE i.`jia_user_id` = ? ORDER BY i.`id` DESC",
+		jiaUserID,
+	)
 	if err != nil {
 		c.Logger().Errorf("db error: %v", err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
 	responseList := []GetIsuListResponse{}
-	for _, isu := range isuList {
-		var lastCondition IsuCondition
-		foundLastCondition := true
-		err = tx.Get(&lastCondition, "SELECT * FROM `isu_condition` WHERE `jia_isu_uuid` = ? ORDER BY `timestamp` DESC LIMIT 1",
-			isu.JIAIsuUUID)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				foundLastCondition = false
-			} else {
-				c.Logger().Errorf("db error: %v", err)
-				return c.NoContent(http.StatusInternalServerError)
-			}
-		}
-
-		var formattedCondition *GetIsuConditionResponse
-		if foundLastCondition {
-			conditionLevel, err := calculateConditionLevel(lastCondition.Condition)
-			if err != nil {
-				c.Logger().Error(err)
-				return c.NoContent(http.StatusInternalServerError)
-			}
-
-			formattedCondition = &GetIsuConditionResponse{
-				JIAIsuUUID:     lastCondition.JIAIsuUUID,
-				IsuName:        isu.Name,
-				Timestamp:      lastCondition.Timestamp.Unix(),
-				IsSitting:      lastCondition.IsSitting,
-				Condition:      lastCondition.Condition,
-				ConditionLevel: conditionLevel,
-				Message:        lastCondition.Message,
-			}
+	for _, latestCondition := range latestConditions {
+		var formattedCondition = &GetIsuConditionResponse{
+			JIAIsuUUID:     latestCondition.JIAIsuUUID,
+			IsuName:        latestCondition.Name,
+			Timestamp:      latestCondition.Timestamp.Unix(),
+			IsSitting:      latestCondition.IsSitting,
+			Condition:      latestCondition.Condition,
+			ConditionLevel: latestCondition.ConditionLevel,
+			Message:        latestCondition.Message,
 		}
 
 		res := GetIsuListResponse{
-			ID:                 isu.ID,
-			JIAIsuUUID:         isu.JIAIsuUUID,
-			Name:               isu.Name,
-			Character:          isu.Character,
+			ID:                 latestCondition.ID,
+			JIAIsuUUID:         latestCondition.JIAIsuUUID,
+			Name:               latestCondition.Name,
+			Character:          latestCondition.Character,
 			LatestIsuCondition: formattedCondition}
 		responseList = append(responseList, res)
 	}
@@ -1129,17 +1099,17 @@ func calculateConditionLevel(condition string) (string, error) {
 // GET /api/trend
 // ISUの性格毎の最新のコンディション情報
 func getTrend(c echo.Context) error {
-	allConditions := []IsuConditionWithIsuIDAndCharacter{}
+	allConditions := []IsuConditionWithIsuInfo{}
 	db.Select(
 		&allConditions,
-		"SELECT i.id AS isu_id, i.`character` AS `character`, c1.jia_isu_uuid, c1.timestamp, c1.condition_level FROM isu_condition c1 JOIN (SELECT jia_isu_uuid, max(timestamp) as timestamp FROM isu_condition c2 GROUP BY jia_isu_uuid) AS c3 ON c1.jia_isu_uuid = c3.jia_isu_uuid AND c1.timestamp = c3.timestamp JOIN isu i ON i.jia_isu_uuid = c1.jia_isu_uuid GROUP BY i.`character`, i.`jia_isu_uuid`",
+		"SELECT i.id AS isu_id, i.`character` AS `character`, c.* FROM isu_latest_condition c JOIN isu i ON i.jia_isu_uuid = c.jia_isu_uuid GROUP BY i.`character`, i.`jia_isu_uuid`",
 	)
-	conditionsByCharacter := map[string][]IsuConditionWithIsuID{}
+	conditionsByCharacter := map[string][]IsuConditionWithIsuInfo{}
 	for _, condition := range allConditions {
 		if _, ok := conditionsByCharacter[condition.Character]; !ok {
-			conditionsByCharacter[condition.Character] = []IsuConditionWithIsuID{}
+			conditionsByCharacter[condition.Character] = []IsuConditionWithIsuInfo{}
 		}
-		conditionsByCharacter[condition.Character] = append(conditionsByCharacter[condition.Character], IsuConditionWithIsuID{
+		conditionsByCharacter[condition.Character] = append(conditionsByCharacter[condition.Character], IsuConditionWithIsuInfo{
 			IsuID:          condition.IsuID,
 			ID:             condition.ID,
 			JIAIsuUUID:     condition.JIAIsuUUID,
