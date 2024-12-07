@@ -3,7 +3,9 @@ package main
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,6 +17,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -52,6 +55,10 @@ var (
 	jiaJWTSigningKey *ecdsa.PublicKey
 
 	postIsuConditionTargetBaseURL string // JIAへのactivate時に登録する，ISUがconditionを送る先のURL
+)
+
+var (
+	iconCache sync.Map
 )
 
 type Config struct {
@@ -189,6 +196,14 @@ type JIAServiceRequest struct {
 	IsuUUID       string `json:"isu_uuid"`
 }
 
+type PostIconRequest struct {
+	Image []byte `json:"image"`
+}
+
+type PostIconResponse struct {
+	Filepath string `json:"filepath"`
+}
+
 func getEnv(key string, defaultValue string) string {
 	val := os.Getenv(key)
 	if val != "" {
@@ -256,6 +271,9 @@ func main() {
 	e.GET("/isu/:jia_isu_uuid/graph", getIndex)
 	e.GET("/register", getIndex)
 	e.Static("/assets", frontendContentsPath+"/assets")
+
+	// icon画像をローカルに保存させるAPI
+	e.POST("/api/icon/save", postIconSaveHandler)
 
 	mySQLConnectionData = NewMySQLConnectionEnv()
 
@@ -718,6 +736,44 @@ func getIsuID(c echo.Context) error {
 	return c.JSON(http.StatusOK, res)
 }
 
+func getFilePathToSaveIcon(image []byte) (string, error) {
+	iconHash := sha256.Sum256(image)
+	hexHash := hex.EncodeToString(iconHash[:])
+	iconFileName := fmt.Sprintf("%s.jpg", hexHash)
+	iconFilePath := "/home/isucon/webapp/img/" + iconFileName
+	return iconFilePath, nil
+}
+
+func saveIconLocal(image []byte) (string, error) {
+	iconFilePath, _ := getFilePathToSaveIcon(image)
+	if _, err := os.Stat(iconFilePath); err == nil {
+		return iconFilePath, nil
+	}
+	f, err := os.OpenFile(iconFilePath, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0777)
+	if err != nil {
+		return "", fmt.Errorf("failed to open file %s: %v", iconFilePath, err)
+	}
+	defer f.Close()
+	if _, err := f.Write(image); err != nil {
+		return "", fmt.Errorf("failed to write file %s: %v", iconFilePath, err)
+	}
+	return iconFilePath, nil
+}
+
+func postIconSaveHandler(c echo.Context) error {
+	var req *PostIconRequest
+	if err := json.NewDecoder(c.Request().Body).Decode(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "failed to decode the request body as json")
+	}
+	filepath, err := saveIconLocal(req.Image)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to save user icon: "+err.Error())
+	}
+	return c.JSON(http.StatusCreated, PostIconResponse{
+		Filepath: filepath,
+	})
+}
+
 // GET /api/isu/:jia_isu_uuid/icon
 // ISUのアイコンを取得
 func getIsuIcon(c echo.Context) error {
@@ -733,6 +789,17 @@ func getIsuIcon(c echo.Context) error {
 
 	jiaIsuUUID := c.Param("jia_isu_uuid")
 
+	key := struct {
+		JiaUserID  string
+		JiaIsuUUID string
+	}{
+		jiaUserID,
+		jiaIsuUUID,
+	}
+	if iconCached, found := iconCache.Load(key); found {
+		c.Response().Header().Set("X-Accel-Redirect", iconCached.(string))
+		return c.NoContent(http.StatusNoContent)
+	}
 	var image []byte
 	err = db.Get(&image, "SELECT `image` FROM `isu` WHERE `jia_user_id` = ? AND `jia_isu_uuid` = ?",
 		jiaUserID, jiaIsuUUID)
@@ -744,8 +811,27 @@ func getIsuIcon(c echo.Context) error {
 		c.Logger().Errorf("db error: %v", err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
+	jsonBody, _ := json.Marshal(PostIconRequest{Image: image})
+	res, err := http.Post(
+		"http://s1.maca.jp:3000/api/icon/save",
+		"application/json; charset=UTF-8",
+		bytes.NewBuffer(jsonBody),
+	)
+	if err != nil {
+		return c.NoContent(http.StatusInternalServerError)
+	}
+	defer res.Body.Close()
+	resBody, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		c.Logger().Error(err)
+		return c.NoContent(http.StatusInternalServerError)
+	}
+	var iconSaveRes PostIconResponse
+	json.Unmarshal(resBody, &iconSaveRes)
+	iconCache.Store(key, iconSaveRes.Filepath)
 
-	return c.Blob(http.StatusOK, "", image)
+	c.Response().Header().Set("X-Accel-Redirect", iconSaveRes.Filepath)
+	return c.NoContent(http.StatusNoContent)
 }
 
 // GET /api/isu/:jia_isu_uuid/graph
