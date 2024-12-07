@@ -13,6 +13,7 @@ SET
     END;
 
 DROP TABLE IF EXISTS `isu_latest_condition`;
+
 CREATE TABLE `isu_latest_condition` (
     `jia_isu_uuid` CHAR(36) NOT NULL UNIQUE,
     `timestamp` DATETIME NOT NULL,
