@@ -1355,13 +1355,21 @@ func postIsuCondition(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 	_, err = tx.NamedExec(
-		"REPLACE INTO `isu_latest_condition`"+
+		"DELETE FROM `isu_latest_condition` WHERE `jia_isu_uuid` = ?",
+		latestCondition.JIAIsuUUID,
+	)
+	if err != nil {
+		c.Logger().Errorf("failed insert isu_latest_condition: %v", err)
+		return c.NoContent(http.StatusInternalServerError)
+	}
+	_, err = tx.NamedExec(
+		"INSERT INTO `isu_latest_condition`"+
 			"	(`jia_isu_uuid`, `timestamp`, `is_sitting`, `condition`, `message`, `condition_level`)"+
 			"	VALUES (:jia_isu_uuid, :timestamp, :is_sitting, :condition, :message, :condition_level)",
 		latestCondition,
 	)
 	if err != nil {
-		c.Logger().Errorf("db error: %v", err)
+		c.Logger().Errorf("failed insert isu_latest_condition: %v", err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
