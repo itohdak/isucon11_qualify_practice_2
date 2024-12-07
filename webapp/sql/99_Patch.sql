@@ -20,6 +20,7 @@ CREATE TABLE `isu_latest_condition` (
     `condition` VARCHAR(255) NOT NULL,
     `message` VARCHAR(255) NOT NULL,
     `created_at` DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+    `condition_level` VARCHAR(10) NOT NULL,
     PRIMARY KEY(`jia_isu_uuid`)
 ) ENGINE = InnoDB DEFAULT CHARACTER SET = utf8mb4;
 
@@ -32,7 +33,8 @@ INSERT INTO
         `is_sitting`,
         `condition`,
         `message`,
-        `created_at`
+        `created_at`,
+        `condition_level`
     )
 SELECT
     c1.`jia_isu_uuid`,
@@ -40,7 +42,8 @@ SELECT
     c1.`is_sitting`,
     c1.`condition`,
     c1.`message`,
-    c1.`created_at`
+    c1.`created_at`,
+    c1.`condition_level`
 FROM
     `isu_condition` c1
     JOIN (
