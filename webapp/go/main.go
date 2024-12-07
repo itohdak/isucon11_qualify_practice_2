@@ -512,7 +512,7 @@ func getIsuList(c echo.Context) error {
 		}
 
 		res := GetIsuListResponse{
-			ID:                 latestCondition.ID,
+			ID:                 latestCondition.IsuID,
 			JIAIsuUUID:         latestCondition.JIAIsuUUID,
 			Name:               latestCondition.Name,
 			Character:          latestCondition.Character,
