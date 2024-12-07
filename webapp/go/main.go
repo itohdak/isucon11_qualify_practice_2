@@ -491,7 +491,7 @@ func getIsuList(c echo.Context) error {
 	latestConditions := []IsuConditionWithIsuInfo{}
 	err = tx.Select(
 		&latestConditions,
-		"SELECT i.`id` AS `isu_id`, i.`name` AS `name`, i.`jia_isu_id` AS `jia_isu_id`, i.`character` AS `character`, c.* FROM `isu` i LEFT OUTER JOIN `isu_latest_condition` c ON i.`jia_isu_uuid` = c.`jia_isu_uuid` WHERE i.`jia_user_id` = ? ORDER BY i.`id` DESC",
+		"SELECT i.`id` AS `isu_id`, i.`name` AS `name`, i.`character` AS `character`, c.* FROM `isu` i LEFT OUTER JOIN `isu_latest_condition` c ON i.`jia_isu_uuid` = c.`jia_isu_uuid` WHERE i.`jia_user_id` = ? ORDER BY i.`id` DESC",
 		jiaUserID,
 	)
 	if err != nil {
