@@ -1026,23 +1026,36 @@ func getIsuConditionsFromDB(db *sqlx.DB, jiaIsuUUID string, endTime time.Time, c
 	}
 
 	if startTime.IsZero() {
-		query = "SELECT * FROM `isu_condition` WHERE `jia_isu_uuid` = ?" +
-			"	AND `timestamp` < ?" +
-			"   AND `condition_level IN (?)" +
+		query = "SELECT * FROM `isu_condition` WHERE `jia_isu_uuid` = :jia_isu_uuid" +
+			"	AND `timestamp` < :end_time" +
+			"   AND `condition_level IN (:condition_level_list)" +
 			"	ORDER BY `timestamp` DESC" +
-			"   LIMIT ?"
-		query, params, err = sqlx.In(query, jiaIsuUUID, endTime, targetConditionLevel, limit)
+			"   LIMIT :limit"
+		query, params, _ = sqlx.Named(query, map[string]interface{}{
+			"condition_level_list": targetConditionLevel,
+			"jia_isu_uuid":         jiaIsuUUID,
+			"end_time":             endTime,
+			"limit":                limit,
+		})
+		query, params, err = sqlx.In(query, params...)
 	} else {
-		query = "SELECT * FROM `isu_condition` WHERE `jia_isu_uuid` = ?" +
-			"	AND `timestamp` < ?" +
-			"	AND ? <= `timestamp`" +
-			"   AND `condition_level` IN (?)" +
+		query = "SELECT * FROM `isu_condition` WHERE `jia_isu_uuid` = :jia_isu_uuid" +
+			"	AND `timestamp` < :end_time" +
+			"	AND :start_time <= `timestamp`" +
+			"   AND `condition_level` IN (:condition_level_list)" +
 			"	ORDER BY `timestamp` DESC" +
-			"   LIMIT ?"
-		query, params, err = sqlx.In(query, jiaIsuUUID, endTime, startTime, targetConditionLevel, limit)
+			"   LIMIT :limit"
+		query, params, _ = sqlx.Named(query, map[string]interface{}{
+			"condition_level_list": targetConditionLevel,
+			"jia_isu_uuid":         jiaIsuUUID,
+			"end_time":             endTime,
+			"start_time":           startTime,
+			"limit":                limit,
+		})
+		query, params, err = sqlx.In(query, params...)
 	}
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("failed to prepare query: %v", err)
 	}
 	if err = db.Select(&conditions, query, params...); err != nil {
 		return nil, fmt.Errorf("db error: %v", err)
