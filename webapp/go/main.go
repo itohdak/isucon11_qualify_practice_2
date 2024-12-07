@@ -1028,7 +1028,7 @@ func getIsuConditionsFromDB(db *sqlx.DB, jiaIsuUUID string, endTime time.Time, c
 	if startTime.IsZero() {
 		query = "SELECT * FROM `isu_condition` WHERE `jia_isu_uuid` = :jia_isu_uuid" +
 			"	AND `timestamp` < :end_time" +
-			"   AND `condition_level IN (:condition_level_list)" +
+			"   AND `condition_level` IN (:condition_level_list)" +
 			"	ORDER BY `timestamp` DESC" +
 			"   LIMIT :limit"
 		query, params, _ = sqlx.Named(query, map[string]interface{}{
@@ -1057,7 +1057,6 @@ func getIsuConditionsFromDB(db *sqlx.DB, jiaIsuUUID string, endTime time.Time, c
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare query: %v", err)
 	}
-	log.Printf("query: %v, params: %v\n", query, params)
 	if err = db.Select(&conditions, query, params...); err != nil {
 		return nil, fmt.Errorf("db error: %v", err)
 	}
