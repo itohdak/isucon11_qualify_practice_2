@@ -488,6 +488,16 @@ func getIsuList(c echo.Context) error {
 	}
 	defer tx.Rollback()
 
+	isuList := []Isu{}
+	err = tx.Select(
+		&isuList,
+		"SELECT * FROM `isu` WHERE `jia_user_id` = ? ORDER BY `id` DESC",
+		jiaUserID)
+	if err != nil {
+		c.Logger().Errorf("db error: %v", err)
+		return c.NoContent(http.StatusInternalServerError)
+	}
+
 	latestConditions := []IsuConditionWithIsuInfo{}
 	err = tx.Select(
 		&latestConditions,
@@ -499,23 +509,38 @@ func getIsuList(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
+	conditionMap := map[int]IsuConditionWithIsuInfo{}
+	for _, condition := range latestConditions {
+		conditionMap[condition.IsuID] = condition
+	}
+
 	responseList := []GetIsuListResponse{}
-	for _, latestCondition := range latestConditions {
-		var formattedCondition = &GetIsuConditionResponse{
-			JIAIsuUUID:     latestCondition.JIAIsuUUID,
-			IsuName:        latestCondition.Name,
-			Timestamp:      latestCondition.Timestamp.Unix(),
-			IsSitting:      latestCondition.IsSitting,
-			Condition:      latestCondition.Condition,
-			ConditionLevel: latestCondition.ConditionLevel,
-			Message:        latestCondition.Message,
+	for _, isu := range isuList {
+		var lastCondition IsuConditionWithIsuInfo
+		foundLastCondition := true
+		lastCondition, ok := conditionMap[isu.ID]
+		if !ok {
+			foundLastCondition = false
+		}
+
+		var formattedCondition *GetIsuConditionResponse
+		if foundLastCondition {
+			formattedCondition = &GetIsuConditionResponse{
+				JIAIsuUUID:     lastCondition.JIAIsuUUID,
+				IsuName:        isu.Name,
+				Timestamp:      lastCondition.Timestamp.Unix(),
+				IsSitting:      lastCondition.IsSitting,
+				Condition:      lastCondition.Condition,
+				ConditionLevel: lastCondition.ConditionLevel,
+				Message:        lastCondition.Message,
+			}
 		}
 
 		res := GetIsuListResponse{
-			ID:                 latestCondition.IsuID,
-			JIAIsuUUID:         latestCondition.JIAIsuUUID,
-			Name:               latestCondition.Name,
-			Character:          latestCondition.Character,
+			ID:                 isu.ID,
+			JIAIsuUUID:         isu.JIAIsuUUID,
+			Name:               isu.Name,
+			Character:          isu.Character,
 			LatestIsuCondition: formattedCondition}
 		responseList = append(responseList, res)
 	}
