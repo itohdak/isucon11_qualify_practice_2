@@ -17,6 +17,7 @@ CREATE TABLE `isu` (
 CREATE INDEX isu_jia_user_id_id_DESC ON `isu`(jia_user_id, id DESC);
 CREATE INDEX isu_jia_user_id_jia_isu_uuid ON `isu`(jia_user_id, jia_isu_uuid);
 CREATE INDEX isu_character ON `isu`(`character`);
+CREATE INDEX isu_character_jia_isu_uuid ON `isu`(`character`, jia_isu_uuid);
 
 CREATE TABLE `isu_condition` (
   `id` bigint AUTO_INCREMENT,
