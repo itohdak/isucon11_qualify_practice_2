@@ -1265,10 +1265,9 @@ func postIsuCondition(c echo.Context) error {
 		conditions,
 	)
 	_, err = tx.NamedExec(
-		"INSERT INTO `isu_latest_condition`"+
+		"REPLACE INTO `isu_latest_condition`"+
 			"	(`jia_isu_uuid`, `timestamp`, `is_sitting`, `condition`, `message`, `condition_level`)"+
-			"	VALUES (:jia_isu_uuid, :timestamp, :is_sitting, :condition, :message, :condition_level)"+
-			"	ON DUPLICATE KEY UPDATE `jia_isu_uuid` = :jia_isu_uuid",
+			"	VALUES (:jia_isu_uuid, :timestamp, :is_sitting, :condition, :message, :condition_level)",
 		latestCondition,
 	)
 	if err != nil {
